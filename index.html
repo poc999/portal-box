@@ -72,7 +72,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+import { TexturePass } from 'three/addons/postprocessing/TexturePass.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
@@ -651,14 +651,9 @@ const volMat = new THREE.ShaderMaterial({
     }`,
 });
 
-// ---- composer: SSAO(own scene render) -> volumetric -> DoF -> bloom -> tonemap -> grade -> vignette ----
+// ---- composer: pre-rendered scene -> volumetric -> DoF -> bloom -> tonemap -> grade -> vignette ----
 const composer = new EffectComposer(renderer);
-const ssaoPass = new SSAOPass(scene, camera, _db.x, _db.y);
-ssaoPass.output = SSAOPass.OUTPUT.Default;   // composited beauty*AO — NOT the raw AO/blur buffer
-ssaoPass.kernelRadius = 6;
-ssaoPass.minDistance = 0.003;
-ssaoPass.maxDistance = 0.15;
-composer.addPass(ssaoPass);
+composer.addPass(new TexturePass(sceneRT.texture));
 composer.addPass(new ShaderPass(volMat, 'tDiffuse'));
 
 // ---- cinematic depth of field — reuses the scene's depth texture, no extra scene render ----
@@ -781,7 +776,7 @@ function renderFrame(dt=0.016){
   smokeMat.uniforms.uTime.value = elapsed;
   renderer.setRenderTarget(null);     composer.render();      // volumetric + cinematic composite
 }
-window.__viz = { renderFrame, camera, controls, paused:false, scene, setElapsed:v=>{elapsed=v;}, dofPass, sketchPass, ssaoPass,
+window.__viz = { renderFrame, camera, controls, paused:false, scene, setElapsed:v=>{elapsed=v;}, dofPass, sketchPass,
   teleportEnter, teleportExit, getZone:()=>playerZone, moveAndCollide, treeWalk, cactusWalk, TREE_POCKET, CACTUS_POCKET };
 const clock=new THREE.Clock();
 function animate(){
@@ -825,13 +820,6 @@ fVig.add(vignettePass.uniforms.darkness,'value',0,1.5,0.01).name('vignette darkn
 fVig.add(vignettePass.uniforms.uAberration,'value',0,8,0.05).name('chromatic aberration');
 fVig.add(vignettePass.uniforms.uGrade,'value',0,1.5,0.01).name('teal-orange grade');
 fVig.add(vignettePass.uniforms.uContrast,'value',0,1,0.01).name('filmic contrast');
-
-const fSsao = gui.addFolder('SSAO (Ambient Occlusion)');
-fSsao.add(ssaoPass,'enabled').name('enabled');
-fSsao.add(ssaoPass,'kernelRadius',0.5,24,0.1).name('radius');
-fSsao.add(ssaoPass,'minDistance',0.0005,0.02,0.0005).name('min distance');
-fSsao.add(ssaoPass,'maxDistance',0.02,0.6,0.005).name('max distance');
-fSsao.add(ssaoPass,'output',{ Default:SSAOPass.OUTPUT.Default, 'AO only':SSAOPass.OUTPUT.SSAO, Blur:SSAOPass.OUTPUT.Blur, Beauty:SSAOPass.OUTPUT.Beauty, Depth:SSAOPass.OUTPUT.Depth, Normal:SSAOPass.OUTPUT.Normal }).name('output mode');
 
 const fDof = gui.addFolder('Depth of Field');
 fDof.add(dofPass,'enabled').name('enabled');
@@ -982,7 +970,7 @@ animate();
 addEventListener('resize', ()=>{
   camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
-  composer.setSize(innerWidth,innerHeight); bloom.setSize(innerWidth,innerHeight); ssaoPass.setSize(innerWidth,innerHeight);
+  composer.setSize(innerWidth,innerHeight); bloom.setSize(innerWidth,innerHeight);
   renderer.getDrawingBufferSize(dbs); rs=rtSize();
   sceneRT.setSize(dbs.x,dbs.y);
   desertRT.setSize(rs.x,rs.y); forestRT.setSize(rs.x,rs.y); uRes.value.set(dbs.x,dbs.y);
