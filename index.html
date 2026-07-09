@@ -654,6 +654,7 @@ const volMat = new THREE.ShaderMaterial({
 // ---- composer: SSAO(own scene render) -> volumetric -> DoF -> bloom -> tonemap -> grade -> vignette ----
 const composer = new EffectComposer(renderer);
 const ssaoPass = new SSAOPass(scene, camera, _db.x, _db.y);
+ssaoPass.output = SSAOPass.OUTPUT.Default;   // composited beauty*AO — NOT the raw AO/blur buffer
 ssaoPass.kernelRadius = 6;
 ssaoPass.minDistance = 0.003;
 ssaoPass.maxDistance = 0.15;
@@ -830,6 +831,7 @@ fSsao.add(ssaoPass,'enabled').name('enabled');
 fSsao.add(ssaoPass,'kernelRadius',0.5,24,0.1).name('radius');
 fSsao.add(ssaoPass,'minDistance',0.0005,0.02,0.0005).name('min distance');
 fSsao.add(ssaoPass,'maxDistance',0.02,0.6,0.005).name('max distance');
+fSsao.add(ssaoPass,'output',{ Default:SSAOPass.OUTPUT.Default, 'AO only':SSAOPass.OUTPUT.SSAO, Blur:SSAOPass.OUTPUT.Blur, Beauty:SSAOPass.OUTPUT.Beauty, Depth:SSAOPass.OUTPUT.Depth, Normal:SSAOPass.OUTPUT.Normal }).name('output mode');
 
 const fDof = gui.addFolder('Depth of Field');
 fDof.add(dofPass,'enabled').name('enabled');
